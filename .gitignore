@@ -220,3 +220,5 @@ __marimo__/
 # virtual env
 env/
 .env
+notebooks/
+local_s3/
