@@ -222,3 +222,5 @@ env/
 .env
 notebooks/
 local_s3/
+data/
+models/
