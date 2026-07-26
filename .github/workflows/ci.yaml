@@ -1,10 +1,87 @@
+# name: CI Pipeline
+
+# on: push
+
+# jobs:
+#   project-testing:
+#     runs-on: self-hosted
+
+#     steps:
+#       - name: checkout code
+#         uses: actions/checkout@v3
+
+#       - name: setup python
+#         uses: actions/setup-python@v2
+#         with:
+#           python-version: '3.10'
+
+#       - name: Cache pip dependencies
+#         uses: actions/cache@v3
+#         with:
+#           path: ~/.cache/pip
+#           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+#           restore-keys: |
+#             ${{ runner.os }}-pip-
+
+#       - name: install dependencies
+#         run: |
+#           pip install -r requirements.txt
+
+#       - name: run pipeline
+#         env:
+#           YT_CAPSTONE_PROJECT: ${{ secrets.YT_CAPSTONE_PROJECT }} # f91378ea8b542f54dc51b07ae50ec2c179ca7f39
+#         run: |
+#           dvc repro
+
+#       - name: Run model tests
+#         env:
+#           YT_CAPSTONE_PROJECT: ${{ secrets.YT_CAPSTONE_PROJECT }}
+#         run: |
+#           python -m unittest tests/test_model.py
+
+#       - name: Promote model to production
+#         if: success()
+#         env:
+#           YT_CAPSTONE_PROJECT: ${{ secrets.YT_CAPSTONE_PROJECT }}
+#         run: python scripts/promote_model.py
+
+#       - name: Run Flask app tests
+#         if: success()
+#         env:
+#           YT_CAPSTONE_PROJECT: ${{ secrets.YT_CAPSTONE_PROJECT }}
+#         run: python -m unittest tests/test_flask_app.py
+
+#       - name: Login to AWS ECR
+#         if: success()
+#         run: |
+#             python -m awscli configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY }}
+#             python -m awscli configure set aws_secret_access_key ${{ secrets.AWS_SECRET_KEY }}
+#             python -m awscli configure set region ${{ secrets.REGION_NAME }}
+#             python -m awscli ecr get-login-password --region ${{ secrets.REGION_NAME }} --endpoint-url=http://localhost:4566 | docker login --username AWS --password-stdin localhost:5100
+
+#       - name: Build Docker image
+#         run: |
+#             docker build -t ${{ secrets.ECR_REPOSITORY }}:latest .
+
+#       - name: Tag Docker image
+#         run: |
+#             docker tag ${{ secrets.ECR_REPOSITORY }}:latest \
+#             localhost:5100/${{ secrets.ECR_REPOSITORY }}:latest
+
+#       - name: Check Docker Authentication
+#         run: docker info
+
+#       - name: Push Docker image to ECR
+#         run: |
+#           docker push localhost:5100/${{ secrets.ECR_REPOSITORY }}:latest
+
 name: CI Pipeline
 
 on: push
 
 jobs:
   project-testing:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: checkout code
@@ -13,15 +90,8 @@ jobs:
       - name: setup python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.10'
-
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          python-version: '3.11'
+          cache: 'pip'
 
       - name: install dependencies
         run: |
@@ -29,7 +99,7 @@ jobs:
 
       - name: run pipeline
         env:
-          YT_CAPSTONE_PROJECT: ${{ secrets.YT_CAPSTONE_PROJECT }} # f91378ea8b542f54dc51b07ae50ec2c179ca7f39
+          YT_CAPSTONE_PROJECT: ${{ secrets.YT_CAPSTONE_PROJECT }}
         run: |
           dvc repro
 
@@ -50,3 +120,25 @@ jobs:
         env:
           YT_CAPSTONE_PROJECT: ${{ secrets.YT_CAPSTONE_PROJECT }}
         run: python -m unittest tests/test_flask_app.py
+
+      - name: Login to AWS ECR
+        if: success()
+        run: |
+            python -m awscli configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY }}
+            python -m awscli configure set aws_secret_access_key ${{ secrets.AWS_SECRET_KEY }}
+            python -m awscli configure set region ${{ secrets.REGION_NAME }}
+            python -m awscli ecr get-login-password --region ${{ secrets.REGION_NAME }} --endpoint-url=http://localhost:4566 | docker login --username AWS --password-stdin localhost:5100
+
+      - name: Build Docker image
+        run: |
+            docker build -t ${{ secrets.ECR_REPOSITORY }}:latest .
+
+      - name: Tag Docker image
+        run: docker tag ${{ secrets.ECR_REPOSITORY }}:latest localhost:5100/${{ secrets.ECR_REPOSITORY }}:latest
+
+      - name: Check Docker Authentication
+        run: docker info
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push localhost:5100/${{ secrets.ECR_REPOSITORY }}:latest
