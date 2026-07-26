@@ -123,10 +123,10 @@ jobs:
       - name: Login to AWS ECR
         if: success()
         run: |
-            python -m awscli configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY }}
-            python -m awscli configure set aws_secret_access_key ${{ secrets.AWS_SECRET_KEY }}
-            python -m awscli configure set region ${{ secrets.REGION_NAME }}
-            python -m awscli ecr get-login-password --region ${{ secrets.REGION_NAME }} --endpoint-url=http://localhost:4566 | docker login --username AWS --password-stdin localhost:5100
+            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY }}
+            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_KEY }}
+            aws configure set region ${{ secrets.REGION_NAME }}
+            aws ecr get-login-password --region ${{ secrets.REGION_NAME }} --endpoint-url=http://localhost:4566 | docker login --username AWS --password-stdin localhost:5100
 
       - name: Build Docker image
         run: |
@@ -141,3 +141,21 @@ jobs:
       - name: Push Docker image to ECR
         run: |
           docker push localhost:5100/${{ secrets.ECR_REPOSITORY }}:latest
+
+      - name: Set Up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region us-east-1 --name flask-app-cluster --endpoint-url=http://localhost:4566
+
+      - name: Create Kubernetes Secret
+        run: |
+          kubectl create secret generic capstone-secret \
+            --from-literal=YT_CAPSTONE_PROJECT=${{ secrets.YT_CAPSTONE_PROJECT }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to EKS
+        run: |
+          kubectl apply -f deployment.yaml

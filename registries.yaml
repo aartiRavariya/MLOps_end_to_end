@@ -1,0 +1,8 @@
+﻿mirrors:
+  "floci-ecr-registry:5000":
+    endpoint:
+      - "http://floci-ecr-registry:5000"
+configs:
+  "floci-ecr-registry:5000":
+    tls:
+      insecure_skip_verify: true
